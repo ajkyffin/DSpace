@@ -12,7 +12,11 @@
     <parent>
         <artifactId>modules</artifactId>
         <groupId>org.dspace</groupId>
+<<<<<<< HEAD
         <version>6.0-SNAPSHOT</version>
+=======
+        <version>5.4-SNAPSHOT</version>
+>>>>>>> upstream/dspace-5_x
         <relativePath>..</relativePath>
     </parent>
 
