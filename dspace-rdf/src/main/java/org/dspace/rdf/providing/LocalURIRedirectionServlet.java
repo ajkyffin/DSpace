@@ -17,7 +17,8 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.dspace.content.DSpaceObject;
 import org.dspace.core.Context;
-import org.dspace.handle.HandleManager;
+import org.dspace.handle.factory.HandleServiceFactory;
+import org.dspace.handle.service.HandleService;
 import org.dspace.rdf.negotiation.Negotiator;
 import org.dspace.utils.DSpace;
 
@@ -30,6 +31,8 @@ public class LocalURIRedirectionServlet extends HttpServlet
     public static final String ACCEPT_HEADER_NAME = "Accept";
     
     private final static Logger log = Logger.getLogger(LocalURIRedirectionServlet.class);
+    
+    protected HandleService handleService = HandleServiceFactory.getInstance().getHandleService();
     
     /**
      * Processes requests for both HTTP
@@ -59,9 +62,7 @@ public class LocalURIRedirectionServlet extends HttpServlet
         String[] path = request.getPathInfo().substring(1).split("/");
 
         String handle = path[0] + "/" + path[1];
-        String dspaceURL = 
-                    (new DSpace()).getConfigurationService().getProperty("dspace.url");
-        
+
         // Prepare content negotiation
         int requestedMimeType = Negotiator.negotiate(request.getHeader(ACCEPT_HEADER_NAME));
         
@@ -70,7 +71,7 @@ public class LocalURIRedirectionServlet extends HttpServlet
         try
         {
             context = new Context(Context.READ_ONLY);
-            dso = HandleManager.resolveToObject(context, handle);
+            dso = handleService.resolveToObject(context, handle);
         }
         catch (SQLException ex)
         {
