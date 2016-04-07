@@ -40,15 +40,16 @@ public class HandleResource extends Resource {
     protected AuthorizeService authorizeService = AuthorizeServiceFactory.getInstance().getAuthorizeService();
 
     private static Logger log = Logger.getLogger(HandleResource.class);
-    private static org.dspace.core.Context context;
 
     @GET
     @Path("/{prefix}/{suffix}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public org.dspace.rest.common.DSpaceObject getObject(@PathParam("prefix") String prefix, @PathParam("suffix") String suffix, @QueryParam("expand") String expand, @javax.ws.rs.core.Context HttpHeaders headers) {
         DSpaceObject dSpaceObject = new DSpaceObject();
+        org.dspace.core.Context context = null;
+
         try {
-            context = createContext(getUser(headers));
+            context = createContext();
 
             org.dspace.content.DSpaceObject dso = handleService.resolveToObject(context, prefix + "/" + suffix);
 
@@ -61,21 +62,24 @@ public class HandleResource extends Resource {
             if(authorizeService.authorizeActionBoolean(context, dso, org.dspace.core.Constants.READ)) {
                 switch(dso.getType()) {
                     case Constants.COMMUNITY:
-                        dSpaceObject = new Community((org.dspace.content.Community) dso, expand, context);
-                        return dSpaceObject;
+                        dSpaceObject = new Community((org.dspace.content.Community) dso, servletContext, expand, context);
+                        break;
                     case Constants.COLLECTION:
-                        dSpaceObject = new Collection((org.dspace.content.Collection) dso, expand, context, null, null);
-                        return dSpaceObject;
+                        dSpaceObject = new Collection((org.dspace.content.Collection) dso, servletContext, expand, context, null, null);
+                        break;
                     case Constants.ITEM:
-                        dSpaceObject = new Item((org.dspace.content.Item) dso, expand, context);
-                        return dSpaceObject;
+                        dSpaceObject = new Item((org.dspace.content.Item) dso, servletContext, expand, context);
+                        break;
                     default:
-                        dSpaceObject = new DSpaceObject(dso);
-                        return dSpaceObject;
+                        dSpaceObject = new DSpaceObject(dso, servletContext);
+                        break;
                 }
             } else {
                 throw new WebApplicationException(Response.Status.UNAUTHORIZED);
             }
+
+            context.complete();
+
         } catch (SQLException e) {
             log.error(e.getMessage());
             throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
@@ -88,7 +92,7 @@ public class HandleResource extends Resource {
             processFinally(context);
         }
 
-        //Not sure where I was missing a return..
         return dSpaceObject;
+
     }
 }

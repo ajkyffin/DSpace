@@ -40,6 +40,11 @@ public class MetadataFieldServiceImpl implements MetadataFieldService {
     @Autowired(required = true)
     protected MetadataValueService metadataValueService;
 
+    protected MetadataFieldServiceImpl()
+    {
+
+    }
+
     @Override
     public MetadataField create(Context context, MetadataSchema metadataSchema, String element, String qualifier, String scopeNote) throws AuthorizeException, SQLException, NonUniqueMetadataException {
         // Check authorisation: Only admins may create DC types
@@ -85,6 +90,11 @@ public class MetadataFieldServiceImpl implements MetadataFieldService {
     @Override
     public MetadataField findByElement(Context context, String metadataSchemaName, String element, String qualifier) throws SQLException {
         return metadataFieldDAO.findByElement(context, metadataSchemaName, element, qualifier);
+    }
+
+    @Override
+    public List<MetadataField> findFieldsByElementNameUnqualified(Context context, String metadataSchemaName, String element) throws SQLException {
+        return metadataFieldDAO.findFieldsByElementNameUnqualified(context, metadataSchemaName, element);
     }
 
     @Override

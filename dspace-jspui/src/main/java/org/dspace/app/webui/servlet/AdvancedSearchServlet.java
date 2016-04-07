@@ -21,7 +21,7 @@ import org.dspace.app.webui.search.SearchRequestProcessor;
 import org.dspace.authorize.AuthorizeException;
 import org.dspace.core.Context;
 import org.dspace.core.PluginConfigurationError;
-import org.dspace.core.PluginManager;
+import org.dspace.core.factory.CoreServiceFactory;
 
 /**
  * Servlet for constructing/processing an advanced search form
@@ -29,22 +29,22 @@ import org.dspace.core.PluginManager;
  */
 public class AdvancedSearchServlet extends DSpaceServlet
 {
-    private SearchRequestProcessor internalLogic;
+    private transient SearchRequestProcessor internalLogic;
 
     /** log4j category */
-    private static Logger log = Logger.getLogger(AdvancedSearchServlet.class);
+    private static final Logger log = Logger.getLogger(AdvancedSearchServlet.class);
 
-    public void init()
+    public AdvancedSearchServlet()
     {
         try
         {
-            internalLogic = (SearchRequestProcessor) PluginManager
+            internalLogic = (SearchRequestProcessor) CoreServiceFactory.getInstance().getPluginService()
                     .getSinglePlugin(SearchRequestProcessor.class);
         }
         catch (PluginConfigurationError e)
         {
             log.warn(
-                    "AdvancedSearchServlet not properly configurated, please configure the SearchRequestProcessor plugin",
+                    "AdvancedSearchServlet not properly configured -- please configure the SearchRequestProcessor plugin",
                     e);
         }
         if (internalLogic == null)
@@ -53,6 +53,7 @@ public class AdvancedSearchServlet extends DSpaceServlet
         }
     }
 
+    @Override
     protected void doDSGet(Context context, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException

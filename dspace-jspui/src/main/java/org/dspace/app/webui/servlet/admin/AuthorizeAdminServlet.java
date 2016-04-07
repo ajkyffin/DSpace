@@ -7,18 +7,6 @@
  */
 package org.dspace.app.webui.servlet.admin;
 
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.apache.commons.lang.time.DateUtils;
 import org.dspace.app.util.AuthorizeUtil;
 import org.dspace.app.webui.servlet.DSpaceServlet;
@@ -29,18 +17,10 @@ import org.dspace.authorize.PolicySet;
 import org.dspace.authorize.ResourcePolicy;
 import org.dspace.authorize.factory.AuthorizeServiceFactory;
 import org.dspace.authorize.service.ResourcePolicyService;
-import org.dspace.content.Bitstream;
-import org.dspace.content.Bundle;
+import org.dspace.content.*;
 import org.dspace.content.Collection;
-import org.dspace.content.Community;
-import org.dspace.content.DSpaceObject;
-import org.dspace.content.Item;
 import org.dspace.content.factory.ContentServiceFactory;
-import org.dspace.content.service.BitstreamService;
-import org.dspace.content.service.BundleService;
-import org.dspace.content.service.CollectionService;
-import org.dspace.content.service.CommunityService;
-import org.dspace.content.service.ItemService;
+import org.dspace.content.service.*;
 import org.dspace.core.Constants;
 import org.dspace.core.Context;
 import org.dspace.eperson.EPerson;
@@ -51,6 +31,13 @@ import org.dspace.eperson.service.GroupService;
 import org.dspace.handle.factory.HandleServiceFactory;
 import org.dspace.handle.service.HandleService;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.*;
+
 /**
  * Servlet for editing permissions
  * 
@@ -59,30 +46,26 @@ import org.dspace.handle.service.HandleService;
  */
 public class AuthorizeAdminServlet extends DSpaceServlet
 {
-	private ItemService itemService;
-	private CollectionService collectionService;
-	private CommunityService communityService;
-	private BundleService bundleService;
-	private BitstreamService bitstreamService;
-	private GroupService groupService;
-	private EPersonService personService; 
-	private HandleService handleService;
-	private ResourcePolicyService resourcePolicyService;
+	private final transient ItemService itemService
+             = ContentServiceFactory.getInstance().getItemService();
+	private final transient CollectionService collectionService
+             = ContentServiceFactory.getInstance().getCollectionService();
+	private final transient CommunityService communityService
+             = ContentServiceFactory.getInstance().getCommunityService();
+	private final transient BundleService bundleService
+             = ContentServiceFactory.getInstance().getBundleService();
+	private final transient BitstreamService bitstreamService
+             = ContentServiceFactory.getInstance().getBitstreamService();
+	private final transient GroupService groupService
+             = EPersonServiceFactory.getInstance().getGroupService();
+	private final transient EPersonService personService
+             = EPersonServiceFactory.getInstance().getEPersonService();
+    private final transient HandleService handleService
+             = HandleServiceFactory.getInstance().getHandleService();
+	private final transient ResourcePolicyService resourcePolicyService
+             = AuthorizeServiceFactory.getInstance().getResourcePolicyService();
 	
-	@Override
-	public void init() throws ServletException {
-		super.init();
-		itemService = ContentServiceFactory.getInstance().getItemService();
-		collectionService = ContentServiceFactory.getInstance().getCollectionService();
-		communityService = ContentServiceFactory.getInstance().getCommunityService();
-		bundleService = ContentServiceFactory.getInstance().getBundleService();
-		bitstreamService = ContentServiceFactory.getInstance().getBitstreamService();
-		groupService = EPersonServiceFactory.getInstance().getGroupService();
-		personService = EPersonServiceFactory.getInstance().getEPersonService();
-		handleService = HandleServiceFactory.getInstance().getHandleService();
-		resourcePolicyService = AuthorizeServiceFactory.getInstance().getResourcePolicyService();
-	}
-	
+    @Override
     protected void doDSGet(Context c, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -94,6 +77,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
         //        showMainPage(c, request, response);
     }
 
+    @Override
     protected void doDSPost(Context c, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -126,7 +110,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
         {
             // select a collections to work on
             List<Collection> collections = collectionService.findAll(c);
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
 
             request.setAttribute("collections", collections);
             request.setAttribute("groups", groups);
@@ -191,7 +175,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 			ResourcePolicy policy = authorizeService.createResourcePolicy(c, item,
 					groupService.findByName(c, Group.ANONYMOUS), null, -1, null);
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to item permission page
@@ -218,7 +202,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 
             policy = resourcePolicyService.find(c, policyId);
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to collection permission page
@@ -243,7 +227,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 			ResourcePolicy policy = authorizeService.createResourcePolicy(c, bundle,
 					groupService.findByName(c, Group.ANONYMOUS), null, -1, null);
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to item permission page
@@ -271,7 +255,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 			ResourcePolicy policy = authorizeService.createResourcePolicy(c, bitstream,
 					groupService.findByName(c, Group.ANONYMOUS), null, -1, null);
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to item permission page
@@ -294,11 +278,13 @@ public class AuthorizeAdminServlet extends DSpaceServlet
             ResourcePolicy policy = resourcePolicyService.find(c, UIUtil
                     .getIntParameter(request, "policy_id"));
 
-            Item item = (Item) policy.getdSpaceObject();
+            Item item = itemService
+                    .find(c, UIUtil.getUUIDParameter(request, "item_id"));
+
 			AuthorizeUtil.authorizeManageItemPolicy(c, item);
             
             // do the remove
-            resourcePolicyService.delete(c, policy);;
+            resourcePolicyService.delete(c, policy);
 
             // show edit form!
             prepItemEditForm(c, request, item);
@@ -318,7 +304,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 					groupService.findByName(c, Group.ANONYMOUS), null, -1, null);
 
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to collection permission page
@@ -411,7 +397,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
                 policy = resourcePolicyService.find(c, policyId);
             }
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to collection permission page
@@ -448,7 +434,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
                 policy = resourcePolicyService.find(c, policyId);
             }
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to collection permission page
@@ -474,7 +460,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 					groupService.findByName(c, Group.ANONYMOUS), null, -1, null);
 
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to collection permission page
@@ -501,7 +487,7 @@ public class AuthorizeAdminServlet extends DSpaceServlet
 					groupService.findByName(c, Group.ANONYMOUS), null, -1, null);
 
 
-            List<Group> groups = groupService.findAll(c, GroupService.NAME);
+            List<Group> groups = groupService.findAll(c, null);
             List<EPerson> epeople = personService.findAll(c, EPerson.EMAIL);
 
             // return to collection permission page
@@ -765,8 +751,8 @@ public class AuthorizeAdminServlet extends DSpaceServlet
         List<ResourcePolicy> itemPolicies = authorizeService.getPolicies(c, item);
 
         // Put bundle and bitstream policies in their own hashes
-        Map<UUID, List<ResourcePolicy>> bundlePolicies = new HashMap<UUID, List<ResourcePolicy>>();
-        Map<UUID, List<ResourcePolicy>> bitstreamPolicies = new HashMap<UUID, List<ResourcePolicy>>();
+        Map<UUID, List<ResourcePolicy>> bundlePolicies = new HashMap<>();
+        Map<UUID, List<ResourcePolicy>> bitstreamPolicies = new HashMap<>();
 
         List<Bundle> bundles = item.getBundles();
 

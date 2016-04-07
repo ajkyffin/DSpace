@@ -7,11 +7,13 @@
  */
 package org.dspace.versioning;
 
+import org.dspace.core.Context;
 import org.hibernate.proxy.HibernateProxyHelper;
 
 import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.log4j.Logger;
 
 /**
  *
@@ -19,10 +21,13 @@ import java.util.List;
  * @author Fabio Bolognesi (fabio at atmire dot com)
  * @author Mark Diggory (markd at atmire dot com)
  * @author Ben Bosman (ben at atmire dot com)
+ * @author Pascal-Nicolas Becker (dspace at pascal dash becker dot de)
  */
 @Entity
 @Table(name="versionhistory")
 public class VersionHistory {
+    
+    private static final Logger log = Logger.getLogger(VersionHistory.class);
 
     @Id
     @Column(name="versionhistory_id")
@@ -35,11 +40,28 @@ public class VersionHistory {
     @OrderBy(value = "versionNumber desc")
     private List<Version> versions = new ArrayList<Version>();
 
+    /**
+     * Protected constructor, create object using:
+     * {@link org.dspace.versioning.service.VersionHistoryService#create(Context)}
+     *
+     */
+    protected VersionHistory()
+    {
+
+    }
+
     public int getId() {
         return id;
     }
 
-    public List<Version> getVersions() {
+    /**
+     * Please use {@link VersioningService#getVersionsByHistory(Context, VersionHistory)} instead.
+     * 
+     * To keep version number stables we keep information about deleted Versions.
+     * {@code VersioningService.getVersionsByHistory(Context, VersionHistory)} filters
+     * such versions and returns only active versions.
+     */
+    protected List<Version> getVersions() {
         return versions;
     }
 

@@ -7,6 +7,7 @@
  */
 package org.dspace.app.webui.servlet;
 
+import com.hp.hpl.jena.sparql.vocabulary.DOAP;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -20,12 +21,11 @@ import org.dspace.app.webui.util.JSPManager;
 import org.dspace.app.webui.util.UIUtil;
 import org.dspace.app.webui.util.VersionUtil;
 import org.dspace.authorize.AuthorizeException;
-import org.dspace.authorize.factory.AuthorizeServiceFactory;
-import org.dspace.authorize.service.AuthorizeService;
 import org.dspace.content.Item;
 import org.dspace.content.factory.ContentServiceFactory;
 import org.dspace.content.service.ItemService;
 import org.dspace.core.Context;
+import org.dspace.services.factory.DSpaceServicesFactory;
 import org.dspace.utils.DSpace;
 import org.dspace.versioning.Version;
 import org.dspace.versioning.VersionHistory;
@@ -43,26 +43,18 @@ public class VersionHistoryServlet extends DSpaceServlet
 {
 
     /** log4j category */
-    private static Logger log = Logger.getLogger(VersionHistoryServlet.class);
-    
-    private AuthorizeService authorizeService;
-    
-    private ItemService itemService;
-    
-    private VersionHistoryService versionHistoryService;
+    private static final Logger log = Logger.getLogger(VersionHistoryServlet.class);
 
-    private VersioningService versioningService;
+    private final transient ItemService itemService
+             = ContentServiceFactory.getInstance().getItemService();
+
+    private final transient VersionHistoryService versionHistoryService
+             = VersionServiceFactory.getInstance().getVersionHistoryService();
     
+    private final transient VersioningService versioningService
+            = VersionServiceFactory.getInstance().getVersionService();
+
     @Override
-    public void init() throws ServletException {
-    	super.init();
-    	authorizeService = AuthorizeServiceFactory.getInstance().getAuthorizeService();
-    	itemService = ContentServiceFactory.getInstance().getItemService();
-    	versionHistoryService = VersionServiceFactory.getInstance().getVersionHistoryService();
-    	versioningService = VersionServiceFactory.getInstance().getVersionService();
-    }
-
-
     protected void doDSGet(Context context, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -76,24 +68,34 @@ public class VersionHistoryServlet extends DSpaceServlet
         	throw new IllegalArgumentException("Item is null");
         }
         
+        // using configurationService.getPropertyAsType instead of getBooleanProperty
+        // to get an instance of java.lang.Boolean instead of the primary type boolean.
+        // Doing this prevents to rely on Javas auto boxing and unboxing feature.
+        Boolean show_submitter = new DSpace()
+                .getConfigurationService()
+                .getPropertyAsType("versioning.item.history.include.submitter",
+                        Boolean.FALSE);
+
         if(!authorizeService.isAdmin(context,
                 item.getOwningCollection()))
         {
             // Check if only administrators can view the item history
-            if (new DSpace().getConfigurationService().getPropertyAsType(
+            if (DSpaceServicesFactory.getInstance().getConfigurationService().getPropertyAsType(
                     "versioning.item.history.view.admin", true))
             {
                 throw new AuthorizeException();
             }
-
+        } else {
+            // if user is Admin override show_submitter
+            show_submitter = Boolean.TRUE;
         }
-
+        request.setAttribute("showSubmitter", show_submitter);
+        
         // manage if versionID is not came by request
-        VersionHistory history = VersionUtil.retrieveVersionHistory(context,
-                item);
+        VersionHistory history = versionHistoryService.findByItem(context, item);
         if (versionID == null || versionID.isEmpty())
         {
-            Version version = versionHistoryService.getVersion(history, item);
+            Version version = versionHistoryService.getVersion(context, history, item);
             if (version != null)
             {
                 versionID = String.valueOf(version.getId());
@@ -144,9 +146,11 @@ public class VersionHistoryServlet extends DSpaceServlet
         request.setAttribute("item", item);
         request.setAttribute("itemID", itemID);
         request.setAttribute("versionID", versionID);
+        request.setAttribute("allVersions", versioningService.getVersionsByHistory(context, history));
         JSPManager.showJSP(request, response, "/tools/version-history.jsp");
     }
 
+    @Override
     protected void doDSPost(Context context, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException

@@ -17,7 +17,6 @@ import org.dspace.authorize.ResourcePolicy;
 import org.dspace.authorize.service.AuthorizeService;
 import org.dspace.authorize.service.ResourcePolicyService;
 import org.dspace.content.authority.Choices;
-import org.dspace.content.authority.service.ChoiceAuthorityService;
 import org.dspace.content.dao.ItemDAO;
 import org.dspace.content.service.*;
 import org.dspace.core.Constants;
@@ -75,6 +74,11 @@ public class ItemServiceImpl extends DSpaceObjectServiceImpl<Item> implements It
     protected IdentifierService identifierService;
     @Autowired(required = true)
     protected VersioningService versioningService;
+
+    protected ItemServiceImpl()
+    {
+        super();
+    }
 
     @Override
     public Thumbnail getThumbnail(Context context, Item item, boolean requireOriginal) throws SQLException {
@@ -414,6 +418,8 @@ public class ItemServiceImpl extends DSpaceObjectServiceImpl<Item> implements It
         log.info(LogManager.getHeader(context, "update_item", "item_id="
                 + item.getID()));
 
+        super.update(context, item);
+
         // Set sequence IDs for bitstreams in item
         int sequence = 0;
         List<Bundle> bunds = item.getBundles();
@@ -747,13 +753,14 @@ public class ItemServiceImpl extends DSpaceObjectServiceImpl<Item> implements It
                     + " has no default item READ policies");
         }
 
-        // if come from InstallItem: remove all submission/workflow policies
-        authorizeService.removeAllPoliciesByDSOAndType(context, item, ResourcePolicy.TYPE_SUBMISSION);
-        authorizeService.removeAllPoliciesByDSOAndType(context, item, ResourcePolicy.TYPE_WORKFLOW);
-
         try {
-            //We just removed all policies so only an admin will be able to add additional policies, ignore the authorizations for now.
+            //ignore the authorizations for now.
             context.turnOffAuthorisationSystem();
+
+            // if come from InstallItem: remove all submission/workflow policies
+            authorizeService.removeAllPoliciesByDSOAndType(context, item, ResourcePolicy.TYPE_SUBMISSION);
+            authorizeService.removeAllPoliciesByDSOAndType(context, item, ResourcePolicy.TYPE_WORKFLOW);
+
             // add default policies only if not already in place
             List<ResourcePolicy> policiesToAdd = filterPoliciesToAdd(context, defaultCollectionPolicies, item);
             authorizeService.addPolicies(context, policiesToAdd, item);
@@ -938,6 +945,13 @@ public class ItemServiceImpl extends DSpaceObjectServiceImpl<Item> implements It
     }
 
     @Override
+    public Iterator<Item> findByMetadataQuery(Context context, List<List<MetadataField>> listFieldList, List<String> query_op, List<String> query_val, List<UUID> collectionUuids, String regexClause, int offset, int limit)
+          throws SQLException, AuthorizeException, IOException
+    {
+        return itemDAO.findByMetadataQuery(context, listFieldList, query_op, query_val, collectionUuids, regexClause, offset, limit);
+    }
+
+    @Override
     public DSpaceObject getAdminObject(Context context, Item item, int action) throws SQLException {
         DSpaceObject adminObject = null;
         //Items are always owned by collections
@@ -1107,12 +1121,11 @@ public class ItemServiceImpl extends DSpaceObjectServiceImpl<Item> implements It
 
     @Override
     public int countItems(Context context, Community community) throws SQLException {
+        // First we need a list of all collections under this community in the hierarchy
         List<Collection> collections = communityService.getAllCollections(context, community);
-        int itemCount = 0;
-        for(Collection collection : collections) {
-            itemCount += countItems(context, collection);
-        }
-        return itemCount;
+        
+        // Now, lets count unique items across that list of collections
+        return itemDAO.countItems(context, collections, true, false);
     }
 
     @Override
@@ -1144,5 +1157,22 @@ public class ItemServiceImpl extends DSpaceObjectServiceImpl<Item> implements It
             throws SQLException
     {
         return itemDAO.findByLastModifiedSince(context, last);
+    }
+
+    @Override
+    public int countTotal(Context context) throws SQLException {
+        return itemDAO.countRows(context);
+    }
+
+    @Override
+    public int countNotArchivedItems(Context context) throws SQLException {
+        // return count of items not in archive and also not withdrawn
+        return itemDAO.countItems(context, false, false);
+    }
+
+    @Override
+    public int countWithdrawnItems(Context context) throws SQLException {
+       // return count of items that are not in archive and withdrawn
+       return itemDAO.countItems(context, false, true);
     }
 }

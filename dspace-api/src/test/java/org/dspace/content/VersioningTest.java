@@ -15,7 +15,6 @@ import org.dspace.content.service.*;
 import org.dspace.core.ConfigurationManager;
 import org.dspace.handle.factory.HandleServiceFactory;
 import org.dspace.handle.service.HandleService;
-import org.dspace.utils.DSpace;
 import org.dspace.versioning.Version;
 import org.dspace.versioning.VersionHistory;
 import org.dspace.versioning.factory.VersionServiceFactory;
@@ -48,7 +47,6 @@ public class VersioningTest extends AbstractUnitTest {
     private Item originalItem;
     private Item versionedItem;
     private String summary = "Unit test version";
-    private DSpace dspace = new DSpace();
     protected CommunityService communityService = ContentServiceFactory.getInstance().getCommunityService();
     protected CollectionService collectionService = ContentServiceFactory.getInstance().getCollectionService();
     protected InstallItemService installItemService = ContentServiceFactory.getInstance().getInstallItemService();
@@ -124,7 +122,7 @@ public class VersioningTest extends AbstractUnitTest {
     {
         VersionHistory versionHistory = versionHistoryService.findByItem(context, originalItem);
         assertThat("testFindVersionHistory", versionHistory, notNullValue());
-        Version version = versionHistoryService.getVersion(versionHistory, versionedItem);
+        Version version = versionHistoryService.getVersion(context, versionHistory, versionedItem);
         assertThat("testFindVersion", version, notNullValue());
     }
 
@@ -136,7 +134,7 @@ public class VersioningTest extends AbstractUnitTest {
     {
         //Start by creating a new item !
         VersionHistory versionHistory = versionHistoryService.findByItem(context, originalItem);
-        Version version = versionHistoryService.getVersion(versionHistory, versionedItem);
+        Version version = versionHistoryService.getVersion(context, versionHistory, versionedItem);
         assertThat("Test_version_summary", summary, equalTo(version.getSummary()));
     }
 

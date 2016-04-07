@@ -25,7 +25,12 @@ import java.util.List;
  *
  * @author kevinvandevelde at atmire.com
  */
-public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> implements MetadataSchemaDAO {
+public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> implements MetadataSchemaDAO
+{
+    protected MetadataSchemaDAOImpl()
+    {
+        super();
+    }
 
     /**
      * Get the schema object corresponding to this namespace URI.
@@ -41,6 +46,8 @@ public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> 
         // Grab rows from DB
         Criteria criteria = createCriteria(context, MetadataSchema.class);
         criteria.add(Restrictions.eq("namespace", namespace));
+        criteria.setCacheable(true);
+
         return uniqueResult(criteria);
     }
 
@@ -49,6 +56,8 @@ public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> 
         // Get all the metadataschema rows
         Criteria criteria = createCriteria(context, MetadataSchema.class);
         criteria.addOrder(Order.asc("id"));
+        criteria.setCacheable(true);
+
         return list(criteria);
     }
 
@@ -69,6 +78,8 @@ public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> 
                 Restrictions.not(Restrictions.eq("id", metadataSchemaId)),
                 Restrictions.eq("namespace", namespace)
         ));
+        criteria.setCacheable(true);
+
         return uniqueResult(criteria) == null;
     }
 
@@ -88,6 +99,7 @@ public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> 
                 Restrictions.not(Restrictions.eq("id", metadataSchemaId)),
                 Restrictions.eq("name", name)
         ));
+        criteria.setCacheable(true);
 
         return uniqueResult(criteria) == null;
     }
@@ -109,6 +121,7 @@ public class MetadataSchemaDAOImpl extends AbstractHibernateDAO<MetadataSchema> 
         criteria.add(
                 Restrictions.eq("name", shortName)
         );
+        criteria.setCacheable(true);
 
         return uniqueResult(criteria);
     }

@@ -33,8 +33,8 @@ import org.dspace.core.LogManager;
 import org.dspace.core.Utils;
 import org.dspace.handle.factory.HandleServiceFactory;
 import org.dspace.handle.service.HandleService;
+import org.dspace.services.factory.DSpaceServicesFactory;
 import org.dspace.usage.UsageEvent;
-import org.dspace.utils.DSpace;
 
 /**
  * Servlet for HTML bitstream support.
@@ -59,20 +59,20 @@ import org.dspace.utils.DSpace;
 public class HTMLServlet extends DSpaceServlet
 {
     /** log4j category */
-    private static Logger log = Logger.getLogger(HTMLServlet.class);
+    private static final Logger log = Logger.getLogger(HTMLServlet.class);
 
     /**
      * Default maximum number of path elements to strip when testing if a
      * bitstream called "foo.html" should be served when "xxx/yyy/zzz/foo.html"
      * is requested.
      */
-    private int maxDepthGuess;
+    private final int maxDepthGuess;
 
-    private ItemService itemService;
-    
-    private HandleService handleService;
-    
-    private BitstreamService bitstreamService;
+    private final transient ItemService itemService;
+
+    private final transient HandleService handleService;
+
+    private final transient BitstreamService bitstreamService;
     
     /**
      * Create an HTML Servlet
@@ -122,6 +122,7 @@ public class HTMLServlet extends DSpaceServlet
     // On the surface it doesn't make much sense for this servlet to
     // handle POST requests, but in practice some HTML pages which
     // are actually JSP get called on with a POST, so it's needed.
+    @Override
     protected void doDSPost(Context context, HttpServletRequest request,
                 HttpServletResponse response)
         throws ServletException, IOException, SQLException, AuthorizeException
@@ -129,6 +130,7 @@ public class HTMLServlet extends DSpaceServlet
         doDSGet(context, request, response);
     }
 
+    @Override
     protected void doDSGet(Context context, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -224,11 +226,11 @@ public class HTMLServlet extends DSpaceServlet
             log.info(LogManager.getHeader(context, "view_html", "handle="
                     + handle + ",bitstream_id=" + bitstream.getID()));
             
-            new DSpace().getEventService().fireEvent(
+            DSpaceServicesFactory.getInstance().getEventService().fireEvent(
             		new UsageEvent(
             				UsageEvent.Action.VIEW,
-            				request, 
-            				context, 
+            				request,
+            				context,
             				bitstream));
             
             //new UsageEvent().fire(request, context, AbstractUsageEvent.VIEW,

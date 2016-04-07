@@ -19,6 +19,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -27,8 +28,6 @@ import org.dspace.app.webui.util.Authenticate;
 import org.dspace.app.webui.util.JSPManager;
 import org.dspace.app.webui.util.UIUtil;
 import org.dspace.authorize.AuthorizeException;
-import org.dspace.authorize.factory.AuthorizeServiceFactory;
-import org.dspace.authorize.service.AuthorizeService;
 import org.dspace.content.Collection;
 import org.dspace.content.Community;
 import org.dspace.content.DSpaceObject;
@@ -43,7 +42,8 @@ import org.dspace.core.ConfigurationManager;
 import org.dspace.core.Constants;
 import org.dspace.core.Context;
 import org.dspace.core.LogManager;
-import org.dspace.core.PluginManager;
+import org.dspace.core.factory.CoreServiceFactory;
+import org.dspace.core.service.PluginService;
 import org.dspace.eperson.EPerson;
 import org.dspace.eperson.Group;
 import org.dspace.eperson.factory.EPersonServiceFactory;
@@ -53,8 +53,8 @@ import org.dspace.handle.service.HandleService;
 import org.dspace.plugin.CollectionHomeProcessor;
 import org.dspace.plugin.CommunityHomeProcessor;
 import org.dspace.plugin.ItemHomeProcessor;
+import org.dspace.services.factory.DSpaceServicesFactory;
 import org.dspace.usage.UsageEvent;
-import org.dspace.utils.DSpace;
 import org.jdom.Element;
 import org.jdom.Text;
 import org.jdom.output.XMLOutputter;
@@ -77,38 +77,33 @@ import org.jdom.output.XMLOutputter;
 public class HandleServlet extends DSpaceServlet
 {
     /** log4j category */
-    private static Logger log = Logger.getLogger(HandleServlet.class);
-
-    /** For obtaining &lt;meta&gt; elements to put in the &lt;head&gt; */
-    private DisseminationCrosswalk xHTMLHeadCrosswalk;
+    private static final Logger log = Logger.getLogger(HandleServlet.class);
 
     // services API
-    private HandleService handleService; 
-    
-    private SubscribeService subscribeService;
-    
-    private ItemService itemService;
-    
-    private CommunityService communityService;
-    
-    private CollectionService collectionService;
-    
-    public HandleServlet()
-    {
-        super();
-        xHTMLHeadCrosswalk = (DisseminationCrosswalk) PluginManager
-                .getNamedPlugin(DisseminationCrosswalk.class, "XHTML_HEAD_ITEM");
-    }
-    
-    public void init() throws ServletException {
-    	super.init();
-    	handleService = HandleServiceFactory.getInstance().getHandleService(); 
-        subscribeService = EPersonServiceFactory.getInstance().getSubscribeService(); 
-        itemService = ContentServiceFactory.getInstance().getItemService();
-        communityService = ContentServiceFactory.getInstance().getCommunityService();
-        collectionService = ContentServiceFactory.getInstance().getCollectionService();
-    }   
+    private final transient HandleService handleService
+             = HandleServiceFactory.getInstance().getHandleService();
 
+    private final transient SubscribeService subscribeService
+             = EPersonServiceFactory.getInstance().getSubscribeService();
+    
+    private final transient ItemService itemService
+             = ContentServiceFactory.getInstance().getItemService();
+    
+    private final transient CommunityService communityService
+             = ContentServiceFactory.getInstance().getCommunityService();
+    
+    private final transient CollectionService collectionService
+             = ContentServiceFactory.getInstance().getCollectionService();
+    
+    private final transient PluginService pluginService
+             = CoreServiceFactory.getInstance().getPluginService();
+    
+    /** For obtaining &lt;meta&gt; elements to put in the &lt;head&gt; */
+    private final transient DisseminationCrosswalk xHTMLHeadCrosswalk
+             = (DisseminationCrosswalk) pluginService
+                .getNamedPlugin(DisseminationCrosswalk.class, "XHTML_HEAD_ITEM");
+
+    @Override
     protected void doDSGet(Context context, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -469,12 +464,12 @@ public class HandleServlet extends DSpaceServlet
             else
             {
                 // check whether there is a logged in user
-                suggestEnable = (context.getCurrentUser() == null ? false : true);
+                suggestEnable = (context.getCurrentUser() != null);
             }
         }
 
         // Fire usage event.
-        new DSpace().getEventService().fireEvent(
+        DSpaceServicesFactory.getInstance().getEventService().fireEvent(
             		new UsageEvent(
             				UsageEvent.Action.VIEW,
             				request,
@@ -482,8 +477,8 @@ public class HandleServlet extends DSpaceServlet
             				item));
 
         // Set attributes and display
-        request.setAttribute("suggest.enable", Boolean.valueOf(suggestEnable));
-        request.setAttribute("display.all", Boolean.valueOf(displayAll));
+        request.setAttribute("suggest.enable", suggestEnable);
+        request.setAttribute("display.all", displayAll);
         request.setAttribute("item", item);
         request.setAttribute("collections", collections);
         request.setAttribute("dspace.layout.head", headMetadata);
@@ -496,7 +491,7 @@ public class HandleServlet extends DSpaceServlet
     {
         try
         {
-            ItemHomeProcessor[] chp = (ItemHomeProcessor[]) PluginManager.getPluginSequence(ItemHomeProcessor.class);
+            ItemHomeProcessor[] chp = (ItemHomeProcessor[]) pluginService.getPluginSequence(ItemHomeProcessor.class);
             for (int i = 0; i < chp.length; i++)
             {
                 chp[i].process(context, request, response, item);
@@ -565,7 +560,7 @@ public class HandleServlet extends DSpaceServlet
             }
 
             // Fire usage event.
-            new DSpace().getEventService().fireEvent(
+            DSpaceServicesFactory.getInstance().getEventService().fireEvent(
             		new UsageEvent(
             				UsageEvent.Action.VIEW,
             				request,
@@ -586,7 +581,7 @@ public class HandleServlet extends DSpaceServlet
     {
     	try
     	{
-    		CommunityHomeProcessor[] chp = (CommunityHomeProcessor[]) PluginManager.getPluginSequence(CommunityHomeProcessor.class);
+    		CommunityHomeProcessor[] chp = (CommunityHomeProcessor[]) pluginService.getPluginSequence(CommunityHomeProcessor.class);
     		for (int i = 0; i < chp.length; i++)
     		{
     			chp[i].process(context, request, response, community);
@@ -706,7 +701,7 @@ public class HandleServlet extends DSpaceServlet
             }
 
             // Fire usage event.
-            new DSpace().getEventService().fireEvent(
+            DSpaceServicesFactory.getInstance().getEventService().fireEvent(
             		new UsageEvent(
             				UsageEvent.Action.VIEW,
             				request,
@@ -716,8 +711,8 @@ public class HandleServlet extends DSpaceServlet
             // Forward to collection home page
             request.setAttribute("collection", collection);
             request.setAttribute("community", community);
-            request.setAttribute("logged.in", Boolean.valueOf(e != null));
-            request.setAttribute("subscribed", Boolean.valueOf(subscribed));
+            request.setAttribute("logged.in", e != null);
+            request.setAttribute("subscribed", subscribed);
             JSPManager.showJSP(request, response, "/collection-home.jsp");
 
             if (updated)
@@ -733,7 +728,7 @@ public class HandleServlet extends DSpaceServlet
     {
     	try
     	{
-    		CollectionHomeProcessor[] chp = (CollectionHomeProcessor[]) PluginManager.getPluginSequence(CollectionHomeProcessor.class);
+    		CollectionHomeProcessor[] chp = (CollectionHomeProcessor[]) pluginService.getPluginSequence(CollectionHomeProcessor.class);
     		for (int i = 0; i < chp.length; i++)
     		{
     			chp[i].process(context, request, response, collection);
@@ -821,21 +816,11 @@ public class HandleServlet extends DSpaceServlet
     {
         // Find all the "parent" communities for the community
         List<Community> parents = communityService.getAllParents(context, c);
-
-        // put into an array in reverse order
-        List<Community> reversedParents = new ArrayList<Community>();
-        int index = parents.size() - 1;
-
-        for (int i = 0; i < parents.size(); i++)
-        {
-            reversedParents.add(parents.get(index - i));
-        }
-
+        parents = Lists.reverse(parents);
         if (include)
         {
-            reversedParents.add(0, c);
+            parents.add(c);
         }
-
-        return reversedParents;
+        return parents;
     }
 }

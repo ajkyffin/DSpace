@@ -7,17 +7,6 @@
  */
 package org.dspace.app.webui.servlet.admin;
 
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.dspace.app.webui.servlet.DSpaceServlet;
 import org.dspace.app.webui.util.JSPManager;
 import org.dspace.app.webui.util.UIUtil;
@@ -30,6 +19,16 @@ import org.dspace.eperson.factory.EPersonServiceFactory;
 import org.dspace.eperson.service.EPersonService;
 import org.dspace.eperson.service.GroupService;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
 /**
  * Servlet for editing groups
  * 
@@ -38,17 +37,13 @@ import org.dspace.eperson.service.GroupService;
  */
 public class GroupEditServlet extends DSpaceServlet
 {
-	private GroupService groupService;
+	private final transient GroupService groupService
+             = EPersonServiceFactory.getInstance().getGroupService();
+
+	private final transient EPersonService personService
+             = EPersonServiceFactory.getInstance().getEPersonService();
 	
-	private EPersonService personService;
-	
-	@Override
-	public void init() throws ServletException {
-		super.init();
-		groupService = EPersonServiceFactory.getInstance().getGroupService();
-		personService = EPersonServiceFactory.getInstance().getEPersonService();
-	}
-	
+    @Override
     protected void doDSGet(Context c, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -56,6 +51,7 @@ public class GroupEditServlet extends DSpaceServlet
         doDSPost(c, request, response);
     }
 
+    @Override
     protected void doDSPost(Context c, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -100,7 +96,7 @@ public class GroupEditServlet extends DSpaceServlet
 
                 if (!newName.equals(group.getName()))
                 {
-                    group.setName(c, newName);
+                    groupService.setName(group, newName);
                     groupService.update(c, group);
                 }
 
@@ -116,8 +112,8 @@ public class GroupEditServlet extends DSpaceServlet
                 {
                     // some epeople were listed, now make group's epeople match
                     // given epeople
-                    Set<UUID> memberSet = new HashSet<UUID>();
-                    Set<UUID> epersonIDSet = new HashSet<UUID>();
+                    Set<UUID> memberSet = new HashSet<>();
+                    Set<UUID> epersonIDSet = new HashSet<>();
 
                     // add all members to a set
                     for (EPerson m :  members)
@@ -164,8 +160,8 @@ public class GroupEditServlet extends DSpaceServlet
                 {
                     // some groups were listed, now make group's member groups
                     // match given group IDs
-                    Set<UUID> memberSet = new HashSet<UUID>();
-                    Set<UUID> groupIDSet = new HashSet<UUID>();
+                    Set<UUID> memberSet = new HashSet<>();
+                    Set<UUID> groupIDSet = new HashSet<>();
 
                     // add all members to a set
                     for (Group g : membergroups)
@@ -260,7 +256,7 @@ public class GroupEditServlet extends DSpaceServlet
             {
                 group = groupService.create(c);
 
-                group.setName(c, "new group" + group.getID());
+                groupService.setName(group, "new group" + group.getID());
                 groupService.update(c, group);
 
                 request.setAttribute("group", group);
@@ -282,7 +278,7 @@ public class GroupEditServlet extends DSpaceServlet
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
     {
-        List<Group> groups = groupService.findAll(c, GroupService.NAME);
+        List<Group> groups = groupService.findAll(c, null);
 
         // if( groups == null ) { System.out.println("groups are null"); }
         // else System.out.println("# of groups: " + groups.length);

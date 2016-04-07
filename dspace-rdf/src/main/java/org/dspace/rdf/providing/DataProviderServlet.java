@@ -23,7 +23,7 @@ import org.dspace.core.Context;
 import org.dspace.handle.factory.HandleServiceFactory;
 import org.dspace.handle.service.HandleService;
 import org.dspace.rdf.RDFUtil;
-import org.dspace.utils.DSpace;
+import org.dspace.services.factory.DSpaceServicesFactory;
 
 /**
  *
@@ -35,8 +35,8 @@ public class DataProviderServlet extends HttpServlet {
     
     private static final Logger log = Logger.getLogger(DataProviderServlet.class);
     
-    protected HandleService handleService = HandleServiceFactory.getInstance().getHandleService();
-    
+    protected final transient HandleService handleService = HandleServiceFactory.getInstance().getHandleService();
+
     /**
      * Processes requests for both HTTP
      * <code>GET</code> and
@@ -63,7 +63,7 @@ public class DataProviderServlet extends HttpServlet {
         if (StringUtils.isEmpty(pathInfo) || StringUtils.countMatches(pathInfo, "/") < 2)
         {
             String dspaceURI = 
-                    (new DSpace()).getConfigurationService().getProperty("dspace.url");
+                    DSpaceServicesFactory.getInstance().getConfigurationService().getProperty("dspace.url");
             this.serveNamedGraph(dspaceURI, lang, cType, response);
             return;
         }

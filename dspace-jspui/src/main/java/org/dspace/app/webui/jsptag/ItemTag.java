@@ -26,7 +26,7 @@ import javax.servlet.jsp.JspWriter;
 import javax.servlet.jsp.jstl.fmt.LocaleSupport;
 import javax.servlet.jsp.tagext.TagSupport;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.log4j.Logger;
 import org.dspace.app.util.DCInputsReaderException;
 import org.dspace.app.util.Util;
@@ -34,8 +34,10 @@ import org.dspace.app.util.factory.UtilServiceFactory;
 import org.dspace.app.util.service.MetadataExposureService;
 import org.dspace.app.webui.util.StyleSelection;
 import org.dspace.app.webui.util.UIUtil;
+import org.dspace.authorize.ResourcePolicy;
 import org.dspace.authorize.factory.AuthorizeServiceFactory;
 import org.dspace.authorize.service.AuthorizeService;
+import org.dspace.authorize.service.ResourcePolicyService;
 import org.dspace.browse.BrowseException;
 import org.dspace.content.Bitstream;
 import org.dspace.content.Bundle;
@@ -49,12 +51,18 @@ import org.dspace.content.authority.service.MetadataAuthorityService;
 import org.dspace.content.factory.ContentServiceFactory;
 import org.dspace.content.service.BundleService;
 import org.dspace.content.service.ItemService;
+import org.dspace.content.service.WorkspaceItemService;
 import org.dspace.core.ConfigurationManager;
 import org.dspace.core.Constants;
 import org.dspace.core.Context;
 import org.dspace.core.I18nUtil;
-import org.dspace.core.PluginManager;
 import org.dspace.core.Utils;
+import org.dspace.core.factory.CoreServiceFactory;
+import org.dspace.eperson.Group;
+import org.dspace.eperson.factory.EPersonServiceFactory;
+import org.dspace.eperson.service.GroupService;
+import org.dspace.workflow.WorkflowItemService;
+import org.dspace.workflow.factory.WorkflowServiceFactory;
 
 /**
  * <P>
@@ -194,10 +202,10 @@ public class ItemTag extends TagSupport
     private static final String DOI_DEFAULT_BASEURL = "http://dx.doi.org/";
 
     /** Item to display */
-    private transient Item item;
+    private Item item;
 
     /** Collections this item appears in */
-    private transient List<Collection> collections;
+    private List<Collection> collections;
 
     /** The style to use - "default" or "full" */
     private String style;
@@ -206,38 +214,57 @@ public class ItemTag extends TagSupport
     private boolean showThumbs;
 
     /** Default DC fields to display, in absence of configuration */
-    private static String defaultFields = "dc.title, dc.title.alternative, dc.contributor.*, dc.subject, dc.date.issued(date), dc.publisher, dc.identifier.citation, dc.relation.ispartofseries, dc.description.abstract, dc.description, dc.identifier.govdoc, dc.identifier.uri(link), dc.identifier.isbn, dc.identifier.issn, dc.identifier.ismn, dc.identifier";
+    private static final String defaultFields
+            = "dc.title, dc.title.alternative, dc.contributor.*, dc.subject, dc.date.issued(date), dc.publisher, dc.identifier.citation, dc.relation.ispartofseries, dc.description.abstract, dc.description, dc.identifier.govdoc, dc.identifier.uri(link), dc.identifier.isbn, dc.identifier.issn, dc.identifier.ismn, dc.identifier";
 
     /** log4j logger */
-    private static Logger log = Logger.getLogger(ItemTag.class);
+    private static final Logger log = Logger.getLogger(ItemTag.class);
 
-    private StyleSelection styleSelection = (StyleSelection) PluginManager.getSinglePlugin(StyleSelection.class);
+    private final transient StyleSelection styleSelection
+            = (StyleSelection) CoreServiceFactory.getInstance().getPluginService().getSinglePlugin(StyleSelection.class);
     
     /** Hashmap of linked metadata to browse, from dspace.cfg */
-    private static Map<String,String> linkedMetadata;
+    private static final Map<String,String> linkedMetadata;
     
     /** Hashmap of urn base url resolver, from dspace.cfg */
-    private static Map<String,String> urn2baseurl;
+    private static final Map<String,String> urn2baseurl;
     
     /** regex pattern to capture the style of a field, ie <code>schema.element.qualifier(style)</code> */
-    private Pattern fieldStylePatter = Pattern.compile(".*\\((.*)\\)");
+    private final Pattern fieldStylePatter = Pattern.compile(".*\\((.*)\\)");
 
     private static final long serialVersionUID = -3841266490729417240L;
     
-    private MetadataExposureService metadataExposureService = UtilServiceFactory.getInstance().getMetadataExposureService();
+    private final transient MetadataExposureService metadataExposureService
+            = UtilServiceFactory.getInstance().getMetadataExposureService();
+
+    private final transient ItemService itemService
+            = ContentServiceFactory.getInstance().getItemService();
+
+    private final transient MetadataAuthorityService metadataAuthorityService
+            = ContentAuthorityServiceFactory.getInstance().getMetadataAuthorityService();
+
+    private final transient BundleService bundleService
+            = ContentServiceFactory.getInstance().getBundleService();
+
+    private final transient AuthorizeService authorizeService
+            = AuthorizeServiceFactory.getInstance().getAuthorizeService();
+
+    private final transient WorkflowItemService workflowItemService 
+            = WorkflowServiceFactory.getInstance().getWorkflowItemService();
     
-    private ItemService itemService = ContentServiceFactory.getInstance().getItemService();
+    private final transient WorkspaceItemService workspaceItemService 
+            = ContentServiceFactory.getInstance().getWorkspaceItemService();
     
-    private MetadataAuthorityService metadataAuthorityService = ContentAuthorityServiceFactory.getInstance().getMetadataAuthorityService();
+    private final transient ResourcePolicyService resourcePolicyService 
+            = AuthorizeServiceFactory.getInstance().getResourcePolicyService();
     
-    private BundleService bundleService = ContentServiceFactory.getInstance().getBundleService();
-    
-    private AuthorizeService authorizeService = AuthorizeServiceFactory.getInstance().getAuthorizeService();
+    private final transient GroupService groupService 
+            = EPersonServiceFactory.getInstance().getGroupService();
 
     static {
         int i;
 
-        linkedMetadata = new HashMap<String, String>();
+        linkedMetadata = new HashMap<>();
         String linkMetadata;
 
         i = 1;
@@ -253,7 +280,7 @@ public class ItemTag extends TagSupport
             i++;
         } while (linkMetadata != null);
 
-        urn2baseurl = new HashMap<String, String>();
+        urn2baseurl = new HashMap<>();
 
         String urn;
         i = 1;
@@ -287,6 +314,7 @@ public class ItemTag extends TagSupport
         getThumbSettings();
     }
 
+    @Override
     public int doStartTag() throws JspException
     {
         try
@@ -385,6 +413,7 @@ public class ItemTag extends TagSupport
         style = styleIn;
     }
 
+    @Override
     public void release()
     {
         style = "default";
@@ -517,7 +546,7 @@ public class ItemTag extends TagSupport
                 
                 //If the values are in controlled vocabulary and the display value should be shown
                 if (isDisplay){
-                    List<String> displayValues = new ArrayList<String>();
+                    List<String> displayValues = new ArrayList<>();
                    
 
                     displayValues = Util.getControlledVocabulariesDisplayValueLocalized(item, values, schema, element, qualifier, sessionLocale);
@@ -585,7 +614,7 @@ public class ItemTag extends TagSupport
                             else
                             {
                                 String foundUrn = null;
-                                if (!style.equals("resolver"))
+                                if (!"resolver".equals(style))
                                 {
                                     foundUrn = style;
                                 }
@@ -941,9 +970,17 @@ public class ItemTag extends TagSupport
             		if ("all".equalsIgnoreCase(ConfigurationManager.getProperty("request.item.type")) || 
             				("logged".equalsIgnoreCase(ConfigurationManager.getProperty("request.item.type")) &&
             						context.getCurrentUser() != null))
-					{
+                        {
             			showRequestCopy = true;
-					}
+                        }
+                        
+                        // check whether bitstreams with access restrictions for
+                        // anonymous users. Label bitstreams accordingly.
+                        boolean labelResctrictedBitstreams =
+                                ConfigurationManager.getBooleanProperty(
+                                        "webui.itemdisplay.label.restricted.bitstreams",
+                                        true);
+                        
             		for (Bundle bundle : bundles)
             		{
             			List<Bitstream> bitstreams = bundle.getBitstreams();
@@ -984,6 +1021,78 @@ public class ItemTag extends TagSupport
             					out.print(bsLink);
             					out.print(b.getName());
                                 out.print("</a>");
+                                // check whether the Bitstream is readable for 
+                                // anonymous users
+                                boolean anonymousReadable = false;
+                                List<ResourcePolicy> policies = resourcePolicyService.find(
+                                                context,
+                                                b,
+                                                groupService.findByName(context, Group.ANONYMOUS),
+                                                Constants.READ,
+                                                -1);
+                                ResourcePolicy rp = null;
+                                for (ResourcePolicy policy : policies)
+                                {
+                                    // we expect to find one policy with the same
+                                    // group, cation and bitstream only.
+                                    // so we can assume that this loop will be 
+                                    // run once only.
+                                    // Even if it is rune multiple times, we
+                                    // won't have a big problem here
+                                    rp = policy;
+                                    // if we found a policy allowing anonymous
+                                    // group to read the bitsream, mark it as
+                                    // being anoymous readable and leave the loop
+                                    if (resourcePolicyService.isDateValid(policy))
+                                    {
+                                        anonymousReadable = true;
+                                        break;
+                                    }
+                                }
+                                
+                                // we need to check for workspace and worflow 
+                                // items, item read policies from the owning
+                                // collection as well, if we did not found 
+                                // read policies already.
+                                if (rp == null && !anonymousReadable)
+                                {
+                                    Collection parent = null;
+                                    
+                                    if (workspaceItemService.findByItem(context, item) != null)
+                                    {
+                                        parent = workspaceItemService.findByItem(context, item).getCollection();
+                                    } else if (workflowItemService.findByItem(context, item) != null)
+                                    {
+                                        parent = workflowItemService.findByItem(context, item).getCollection();
+                                    }
+                                    if (parent != null)
+                                    {
+                                        anonymousReadable = !authorizeService.getPoliciesActionFilter(
+                                                        context,
+                                                        parent,
+                                                        Constants.DEFAULT_ITEM_READ).isEmpty();
+                                    }
+                                }
+
+                                if (labelResctrictedBitstreams && !anonymousReadable)
+                                {
+                                    out.print("<br /><i class=\"label label-info\">");
+                                    if (rp == null
+                                            || rp.getEndDate() != null
+                                            || rp.getStartDate() == null)
+                                    {
+                                        out.print(LocaleSupport.getLocalizedMessage(
+                                                pageContext,
+                                                "org.dspace.app.webui.jsptag.ItemTag.accessRestricted"));
+                                    } else {
+                                        out.print(LocaleSupport.getLocalizedMessage(
+                                                pageContext,
+                                                "org.dspace.app.webui.jsptag.ItemTag.restrictionUntil"));
+                                        out.print(" " + DateFormatUtils.format(rp.getStartDate(), "yyyy-MM-dd"));
+                                    }
+                                    out.print("</i>");
+                                }
+
                                 
 
             					if (multiFile)

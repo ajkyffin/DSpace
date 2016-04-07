@@ -44,7 +44,7 @@ import org.dspace.core.LogManager;
 import org.dspace.eperson.EPerson;
 import org.dspace.handle.factory.HandleServiceFactory;
 import org.dspace.handle.service.HandleService;
-import org.dspace.utils.DSpace;
+import org.dspace.services.factory.DSpaceServicesFactory;
 
 /**
  * Servlet for generate a statistisc report
@@ -55,15 +55,15 @@ import org.dspace.utils.DSpace;
 public class RequestItemServlet extends DSpaceServlet
 {
     /** log4j category */
-    private static Logger log = Logger.getLogger(RequestItemServlet.class);
+    private static final Logger log = Logger.getLogger(RequestItemServlet.class);
     
     /** The information get by form step */
     public static final int ENTER_FORM_PAGE = 1;
 
-    /** The link by submmiter email step*/
+    /** The link by submitter email step*/
     public static final int ENTER_TOKEN = 2;
     
-    /** The link Aproved genarate letter step*/
+    /** The link Approved generate letter step*/
     public static final int APROVE_TOKEN = 3;
 
     /* resume leter for request user*/
@@ -72,23 +72,19 @@ public class RequestItemServlet extends DSpaceServlet
     /* resume leter for request dspace administrator*/
     public static final int RESUME_FREEACESS = 5;
 
-    private HandleService handleService;
+    private final transient HandleService handleService
+             = HandleServiceFactory.getInstance().getHandleService();
     
-    private ItemService itemService;
+    private final transient ItemService itemService
+             = ContentServiceFactory.getInstance().getItemService();
     
-    private BitstreamService bitstreamService;
+    private final transient BitstreamService bitstreamService
+             = ContentServiceFactory.getInstance().getBitstreamService();
     
-    private RequestItemService requestItemService;
+    private final transient RequestItemService requestItemService
+             = RequestItemServiceFactory.getInstance().getRequestItemService();
     
     @Override
-    public void init() throws ServletException {
-    	super.init();
-    	itemService = ContentServiceFactory.getInstance().getItemService();
-    	bitstreamService = ContentServiceFactory.getInstance().getBitstreamService();
-    	handleService = HandleServiceFactory.getInstance().getHandleService();
-    	requestItemService = RequestItemServiceFactory.getInstance().getRequestItemService();
-    }
-    
     protected void doDSGet(Context context,
         HttpServletRequest request,
         HttpServletResponse response)
@@ -132,6 +128,7 @@ public class RequestItemServlet extends DSpaceServlet
         }
     }
 
+    @Override
     protected void doDSPost(Context context,
         HttpServletRequest request,
         HttpServletResponse response)
@@ -213,7 +210,7 @@ public class RequestItemServlet extends DSpaceServlet
                 request.setAttribute("title", title); 
                 request.setAttribute("allfiles", allfiles?"true":null); 
                 
-                request.setAttribute("requestItem.problem", new Boolean(true));
+                request.setAttribute("requestItem.problem", Boolean.TRUE);
                 JSPManager.showJSP(request, response, "/requestItem/request-form.jsp");
                 return;
             }
@@ -227,8 +224,7 @@ public class RequestItemServlet extends DSpaceServlet
 				Email email = Email.getEmail(I18nUtil.getEmailFilename(
 						context.getCurrentLocale(), "request_item.author"));
 				
-				RequestItemAuthor author = new DSpace()
-						.getServiceManager()
+				RequestItemAuthor author = DSpaceServicesFactory.getInstance().getServiceManager()
 						.getServiceByName(
 								RequestItemAuthorExtractor.class.getName(),
 								RequestItemAuthorExtractor.class)
@@ -550,9 +546,11 @@ public class RequestItemServlet extends DSpaceServlet
     {
         String base = ConfigurationManager.getProperty("dspace.url");
 
-        String specialLink = (new StringBuffer()).append(base).append(
-                base.endsWith("/") ? "" : "/").append(
-                "request-item").append("?step=" + RequestItemServlet.ENTER_TOKEN)
+        String specialLink = (new StringBuffer()).append(base)
+                .append(base.endsWith("/") ? "" : "/")
+                .append("request-item")
+                .append("?step=")
+                .append(RequestItemServlet.ENTER_TOKEN)
                 .append("&token=")
                 .append(token)
                 .toString();

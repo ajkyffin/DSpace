@@ -29,8 +29,8 @@ import org.dspace.core.Constants;
 import org.dspace.core.Context;
 import org.dspace.core.LogManager;
 import org.dspace.core.Utils;
+import org.dspace.services.factory.DSpaceServicesFactory;
 import org.dspace.usage.UsageEvent;
-import org.dspace.utils.DSpace;
 
 /**
  * Servlet for retrieving bitstreams. The bits are simply piped to the user.
@@ -43,14 +43,15 @@ import org.dspace.utils.DSpace;
 public class RetrieveServlet extends DSpaceServlet
 {
     /** log4j category */
-    private static Logger log = Logger.getLogger(RetrieveServlet.class);
+    private static final Logger log = Logger.getLogger(RetrieveServlet.class);
 
     /**
      * Threshold on Bitstream size before content-disposition will be set.
      */
     private int threshold;
     
-    private BitstreamService bitstreamService;
+    private final transient BitstreamService bitstreamService
+             = ContentServiceFactory.getInstance().getBitstreamService();
     
     @Override
 	public void init(ServletConfig arg0) throws ServletException {
@@ -58,9 +59,9 @@ public class RetrieveServlet extends DSpaceServlet
 		super.init(arg0);
 		threshold = ConfigurationManager
 				.getIntProperty("webui.content_disposition_threshold");
-		bitstreamService = ContentServiceFactory.getInstance().getBitstreamService();
 	}
     
+    @Override
     protected void doDSGet(Context context, HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException,
             SQLException, AuthorizeException
@@ -123,7 +124,7 @@ public class RetrieveServlet extends DSpaceServlet
             log.info(LogManager.getHeader(context, "view_bitstream",
                     "bitstream_id=" + bitstream.getID()));
 
-            new DSpace().getEventService().fireEvent(
+            DSpaceServicesFactory.getInstance().getEventService().fireEvent(
             		new UsageEvent(
             				UsageEvent.Action.VIEW,
             				request, 

@@ -41,7 +41,7 @@ import java.util.*;
 public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> implements CollectionService {
 
     /** log4j category */
-    private static Logger log = Logger.getLogger(CollectionServiceImpl.class);
+    private static final Logger log = Logger.getLogger(CollectionServiceImpl.class);
 
     @Autowired(required = true)
     protected CollectionDAO collectionDAO;
@@ -64,6 +64,11 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
     @Autowired(required = true)
     protected WorkspaceItemService workspaceItemService;
 
+
+    protected CollectionServiceImpl()
+    {
+        super();
+    }
 
     @Override
     public Collection create(Context context, Community community) throws SQLException, AuthorizeException {
@@ -132,7 +137,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
             return findAuthorized(context, null, actionID);
         }
 
-        List<Collection> myResults = new ArrayList<Collection>();
+        List<Collection> myResults = new ArrayList<>();
 
         if(authorizeService.isAdmin(context))
         {
@@ -313,7 +318,8 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
             Group g = groupService.create(context);
             context.restoreAuthSystemState();
 
-            g.setName(context, "COLLECTION_" + collection.getID() + "_WORKFLOW_STEP_" + step);
+            groupService.setName(g,
+                    "COLLECTION_" + collection.getID() + "_WORKFLOW_STEP_" + step);
             groupService.update(context, g);
             setWorkflowGroup(collection, step, g);
 
@@ -359,6 +365,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
     /**
      * Get the value of a metadata field
      *
+     * @param collection
      * @param field
      *            the name of the metadata field to get
      *
@@ -389,7 +396,8 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
             submitters = groupService.create(context);
             context.restoreAuthSystemState();
 
-            submitters.setName(context, "COLLECTION_" + collection.getID() + "_SUBMIT");
+            groupService.setName(submitters,
+                    "COLLECTION_" + collection.getID() + "_SUBMIT");
             groupService.update(context, submitters);
         }
 
@@ -429,7 +437,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
             admins = groupService.create(context);
             context.restoreAuthSystemState();
 
-            admins.setName(context, "COLLECTION_" + collection.getID() + "_ADMIN");
+            groupService.setName(admins, "COLLECTION_" + collection.getID() + "_ADMIN");
             groupService.update(context, admins);
         }
 
@@ -533,7 +541,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
         }
 
         context.addEvent(new Event(Event.ADD, Constants.COLLECTION, collection.getID(),
-                Constants.ITEM, item.getID(), item.getHandle(), 
+                Constants.ITEM, item.getID(), item.getHandle(),
                 getIdentifiers(context, collection)));
     }
 
@@ -546,13 +554,13 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
         item.removeCollection(collection);
 
         //Check if we orphaned our poor item
-        if (item.getCollections().size() == 0)
+        if (item.getCollections().isEmpty())
         {
             // Orphan; delete it
             itemService.delete(context, item);
         }
 
-        context.addEvent(new Event(Event.REMOVE, Constants.COLLECTION, 
+        context.addEvent(new Event(Event.REMOVE, Constants.COLLECTION,
                 collection.getID(), Constants.ITEM, item.getID(), item.getHandle(),
                 getIdentifiers(context, collection)));
     }
@@ -565,6 +573,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
         log.info(LogManager.getHeader(context, "update_collection",
                 "collection_id=" + collection.getID()));
 
+        super.update(context, collection);
         collectionDAO.save(context, collection);
 
         if (collection.isModified())
@@ -680,6 +689,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
         Group g = collection.getWorkflowStep1();
         if (g != null)
         {
+            collection.setWorkflowStep1(null);
             groupService.delete(context, g);
         }
 
@@ -687,6 +697,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
 
         if (g != null)
         {
+            collection.setWorkflowStep2(null);
             groupService.delete(context, g);
         }
 
@@ -694,6 +705,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
 
         if (g != null)
         {
+            collection.setWorkflowStep3(null);
             groupService.delete(context, g);
         }
 
@@ -702,6 +714,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
 
         if (g != null)
         {
+            collection.setAdmins(null);
             groupService.delete(context, g);
         }
 
@@ -710,6 +723,7 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
 
         if (g != null)
         {
+            collection.setSubmitters(null);
             groupService.delete(context, g);
         }
 
@@ -733,9 +747,9 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
 
     @Override
     public List<Collection> findAuthorized(Context context, Community community, int actionID) throws SQLException {
-        List<Collection> myResults = new ArrayList<Collection>();
+        List<Collection> myResults = new ArrayList<>();
 
-        List<Collection> myCollections = null;
+        List<Collection> myCollections;
 
         if (community != null)
         {
@@ -759,6 +773,11 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
     @Override
     public Collection findByGroup(Context context, Group group) throws SQLException {
         return collectionDAO.findByGroup(context, group);
+    }
+
+    @Override
+    public List<Collection> findCollectionsWithSubscribers(Context context) throws SQLException {
+        return collectionDAO.findCollectionsWithSubscribers(context);
     }
 
     @Override
@@ -829,5 +848,15 @@ public class CollectionServiceImpl extends DSpaceObjectServiceImpl<Collection> i
     @Override
     public Collection findByLegacyId(Context context, int id) throws SQLException {
         return collectionDAO.findByLegacyId(context, id, Collection.class);
+    }
+
+    @Override
+    public int countTotal(Context context) throws SQLException {
+        return collectionDAO.countRows(context);
+    }
+
+    @Override
+    public List<Map.Entry<Collection, Long>> getCollectionsWithBitstreamSizesTotal(Context context) throws SQLException {
+        return collectionDAO.getCollectionsWithBitstreamSizesTotal(context);
     }
 }
