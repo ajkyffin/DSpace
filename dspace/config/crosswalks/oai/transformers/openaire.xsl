@@ -80,6 +80,8 @@
 		</xsl:choose>
 	</xsl:template>
 	
+	
+	
 	<!-- Date format -->
 	<xsl:template name="formatdate">
 		<xsl:param name="datestr" />
